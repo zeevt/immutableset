@@ -1,0 +1,37 @@
+This is an experiment aimed at building a tool that when given a list of ints will build a shared library with a function is_int_set(int) that tests whether a given int was in that list.
+
+After correctness, the performance of is_in_set is the most important thing, while keeping within reasonable bounds the size of the shared library, the amount of memory it uses when dl_open'd, and the time it takes to generate a new one.
+
+Developed on x86-64 Linux, but should work on other platforms and OSs. Notably, a previous version was made to work on winNT.
+
+To test:
+
+    make tester_pgo
+
+and then
+
+    make compare size=1000
+
+or
+
+    make benchmark_data.txt seq='\`seq 100 100 1000\`'
+
+One can try
+
+    make compare size=1000 CC=clang
+
+to use clang, but performance suffers. Help on using PGO with clang is appreciated.
+
+    make compare size=1000 CC=icc
+
+Uses the Intel Compiler. Also slower than GCC 4.5.1.
+
+Some of the implementations are silly. If you only want to run the interesting ones, do
+
+    make compare IMPLS_BENCH="skiplist hopscotch" size=1000
+
+The data structure used in "skiplist" is my own invention, in the sense that I came up with it by myself without seeing it a textbook, class, paper, other people's code, etc.
+I have not performed a search to see if I am the first to implement it or whether someone has patented it.
+It can be faster than binary search while taking the same amount of space. Performance depends on compiler and processor, obviously.
+
+Notably, clang and icc don't unroll the loops in skiplist_generated.c, resulting in performance worse than binary search.
