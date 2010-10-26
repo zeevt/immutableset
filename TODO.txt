@@ -1,0 +1,9 @@
+TODO:
+data-driven command line options parsing for tester
+hash:
+  actually use correlation data in hash implementation
+  a hash with a bucket exactly cache_line sized
+winnt_port:
+  tiny skiplist
+  investigate cmake
+port to guava-libraries
