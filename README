@@ -32,6 +32,6 @@ Some of the implementations are silly. If you only want to run the interesting o
 
 The data structure used in "skiplist" is my own invention, in the sense that I came up with it by myself without seeing it a textbook, class, paper, other people's code, etc.
 I have not performed a search to see if I am the first to implement it or whether someone has patented it.
-It can be faster than binary search while taking the same amount of space. Performance depends on compiler and processor, obviously.
+It can be faster than binary search while taking the same amount of space. Performance depends on compiler and processor, obviously. Notably, clang and icc don't unroll the loops in skiplist_generated.c, resulting in performance worse than binary search.
 
-Notably, clang and icc don't unroll the loops in skiplist_generated.c, resulting in performance worse than binary search.
+Makefile has some processor-specific flags and readonly_set_cfg.h has a #define for the length of a cacheline. Adjust accordingly.
