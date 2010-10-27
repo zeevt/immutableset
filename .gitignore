@@ -1,0 +1,7 @@
+tester
+test_data.bin
+test_data_misses.bin
+*.o
+*.gcda
+*.so
+*_generated.c
