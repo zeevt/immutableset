@@ -152,11 +152,15 @@ void hopscotch_generate_c(const struct hopscotch_t* h, FILE* stream)
   "{" S_EOL
     "item_t key =" S_EOL, stream);
   output_mask(stream, h->mask, h->bits_used);
-  fprintf(stream,
-    ";" S_EOL
-    "for (int probe = 0; probe < %d; probe++)" S_EOL
-      "if (array[key + probe] == item)" S_EOL
-        "return &array[key + probe];" S_EOL
+  fputs(
+    ";\n"
+    "const item_t *p = &array[key];\n"
+    "#define CHECK() if (*p == item) return p; else ++p;\n"
+  , stream);
+  for (int i = 0; i < h->neighborhood_size; i++)
+    fputs("CHECK()" S_EOL, stream);
+  fputs(
     "return 0;" S_EOL
-  "}" S_EOL, h->neighborhood_size);
+  "}" S_EOL
+  , stream);
 }
