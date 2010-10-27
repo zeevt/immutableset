@@ -28,6 +28,9 @@ THE SOFTWARE.
 
 ABSTRACT_RS_STRUCT(linear_t)
 
+/*
+ * Manual unrolling implemented by http://www.reddit.com/user/ma_boi
+ */
 void linear_generate_c(const struct linear_t* bs, FILE* stream)
 {
   fputs(
@@ -47,8 +50,8 @@ void linear_generate_c(const struct linear_t* bs, FILE* stream)
       "if (array[i+"#off"] == item)" S_EOL \
         "return &array[i+"#off"];" S_EOL
 
-    "unsigned i = 0;"
-    "for (; i < ((sizeof(array)/sizeof(*array)) & ~7); i+=8) {" S_EOL
+    "unsigned i = 0;" S_EOL
+    "for (; i < ((sizeof(array)/sizeof(*array)) & ~7); i += 8) {" S_EOL
         CHECK(0)
         CHECK(1)
         CHECK(2)
