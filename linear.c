@@ -38,9 +38,31 @@ void linear_generate_c(const struct linear_t* bs, FILE* stream)
   fputs(S_EOL "};\n"
   FUNCTION_DEFINITION S_EOL
   "{" S_EOL
+#if 0
     "for (unsigned i = 0; i < sizeof(array)/sizeof(*array); i++)" S_EOL
       "if (array[i] == item)" S_EOL
         "return &array[i];" S_EOL
+#else
+#define CHECK(off) \
+      "if (array[i+"#off"] == item)" S_EOL \
+        "return &array[i+"#off"];" S_EOL
+
+    "unsigned i = 0;"
+    "for (; i < ((sizeof(array)/sizeof(*array)) & ~7); i+=8) {" S_EOL
+        CHECK(0)
+        CHECK(1)
+        CHECK(2)
+        CHECK(3)
+        CHECK(4)
+        CHECK(5)
+        CHECK(6)
+        CHECK(7)
+    "}" S_EOL
+
+    "for (; i < sizeof(array)/sizeof(*array); i++)" S_EOL
+      "if (array[i] == item)" S_EOL
+        "return &array[i];" S_EOL
+#endif
     "return 0;" S_EOL
   "}" S_EOL, stream);
 }
