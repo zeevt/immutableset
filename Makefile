@@ -70,7 +70,7 @@ endif
 %_generated.gcda: %_generated_instrumented.so
 	./tester benchmark ${data_file} ${data_file_misses} ./$*_generated_instrumented.so | egrep -o 'GOOD|BAD'
 
-%_generated_pgo.so: %_generated.c %_generated.gcda
+%_generated_$(CC)_pgo.so: %_generated.c %_generated.gcda
 	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -fPIC -c -o $*_generated.o $<
 	$(CC) $(LDFLAGS) $(PGO_USE) -shared -o $@ $*_generated.o
 ifeq ($(CC),icc)
@@ -91,8 +91,8 @@ ifndef IMPLS_BENCH
 IMPLS_BENCH = $(IMPLS)
 endif
 
-compare: tester ${data_file} $(IMPLS_BENCH:%=%_generated_pgo.so)
-	taskset 1 ./tester benchmark ${data_file} ${data_file_misses} $(IMPLS_BENCH:%=./%_generated_pgo.so)
+compare: tester ${data_file} $(IMPLS_BENCH:%=%_generated_$(CC)_pgo.so)
+	taskset 1 ./tester benchmark ${data_file} ${data_file_misses} $(IMPLS_BENCH:%=./%_generated_$(CC)_pgo.so)
 
 benchmark_data.txt: regen
 	if [ -z "${seq}" ]; then echo "ERROR! Provide seq parameter like seq='\`seq 100 100 1000\`'" ; false; fi

@@ -1,6 +1,5 @@
 TODO:
 data-driven command line options parsing for tester
-object file name includes ${CC}
 switch from tree.h to C++ STL in tester
 hash:
   actually use correlation data in hash implementation
