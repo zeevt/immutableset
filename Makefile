@@ -108,6 +108,7 @@ benchmark_data.txt: regen
 			grep $${impl}_generated_pgo.so -B 2 benchmark_data.temp | \
 			grep ' misses ' | \
 			egrep -o '[012345789]+\.[0123456789]+' > val2.temp ; \
+			strip --strip-unneeded $${impl}_generated_pgo.so ; \
 			size -A $${impl}_generated_pgo.so | egrep '^Total' | \
 			awk '{print $$2}' > val4.temp ; \
 			echo $$i > val5.temp ; \
