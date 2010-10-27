@@ -137,7 +137,8 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
   "#define ARRLEN(a)        (sizeof(a)/sizeof(*a))\n"
   FUNCTION_DEFINITION S_EOL
   "{" S_EOL
-    "assert(0 == ((intptr_t)&array[0] % CACHE_LINE_BYTES));" S_EOL
+    "assert(0 == ((intptr_t)&array[0] % CACHE_LINE_BYTES));\n"
+    "#if defined(__GNUC_MINOR__) && (__GNUC_MINOR__ > 3)\n"
     "unsigned level = 0, offset = 0, breadcrumbs = 0;" S_EOL
     "while (level < ARRLEN(offsets))" S_EOL
     "{" S_EOL
@@ -162,7 +163,37 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
       "assert((offset + i) < ARRLEN(array));" S_EOL
       "if (item == array[ offset + i ])" S_EOL
         "return &array[ offset + i ];" S_EOL
-    "}" S_EOL
+    "}\n"
+    "#else\n"
+    "unsigned offset = 0, breadcrumbs = 0;" S_EOL
+    "#define CHECK_EQ(i) \\\n"
+      "if (item == array[ offset + i ]) \\\n"
+          "return &array[ offset + i ];\n"
+    "#define CHECK_EQ_AND_LT(next_level, i) \\\n"
+      "CHECK_EQ(i) \\\n"
+      "if (item < array[ offset + i ]) \\\n"
+      "{ \\\n"
+        "breadcrumbs = (breadcrumbs | i) * BUCKET_ITEMS; \\\n"
+        "offset = offsets[next_level - 1] + breadcrumbs; \\\n"
+        "goto level##next_level; \\\n"
+      "}\n"
+  , stream);
+  for (int level = 0; level < sl->max_level; level++)
+  {
+    if (level)
+      fprintf(stream, "level%d:" S_EOL, level);
+    for (unsigned i = 0; i < BUCKET_ITEMS; i++)
+      fprintf(stream, "CHECK_EQ_AND_LT(%d, %d)" S_EOL, level + 1, i);
+    fputs("return 0;" S_EOL, stream);
+  }
+  fprintf(stream,
+    "level%d:" S_EOL
+    "if (offset >= ARRLEN(array))" S_EOL
+      "return 0;" S_EOL, sl->max_level);
+  for (unsigned i = 0; i < BUCKET_ITEMS; i++)
+    fprintf(stream, "CHECK_EQ(%d)" S_EOL, i);
+  fputs(
+    "\n#endif /* __GNUC__ */\n"
     "return 0;" S_EOL
   "}" S_EOL, stream);
 }
