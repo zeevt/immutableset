@@ -136,6 +136,16 @@ choose_hash_func_mask_pgo: choose_hash_func_mask.c slogaemie.c next_permutation.
 	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
 	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
 
+cpu_fast:
+	cpufreq-set -c 0 -g userspace
+	cpufreq-set -c 1 -g userspace
+	cpufreq-set -c 0 -f 2.33Ghz
+	cpufreq-set -c 1 -f 2.33Ghz
+
+cpu_cool:
+	cpufreq-set -c 0 -g ondemand
+	cpufreq-set -c 1 -g ondemand
+
 clean:
 	rm -f test_data.bin test_data_misses.bin tester *.so *_generated.c \
 	choose_hash_func_mask choose_hash_func_mask_pgo \
