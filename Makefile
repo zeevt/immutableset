@@ -102,14 +102,14 @@ benchmark_data.txt: regen
 		grep './tester benchmark' -A $$((3 * $(shell echo $(IMPLS_BENCH) | wc -w))) | \
 		grep -v '.tester' > benchmark_data.temp ; \
 		for impl in $(IMPLS_BENCH) ; do \
-			grep $${impl}_generated_pgo.so -B 2 benchmark_data.temp | \
+			grep $${impl}_generated_$(CC)_pgo.so -B 2 benchmark_data.temp | \
 			grep ' hits ' | \
 			egrep -o '[012345789]+\.[0123456789]+' > val1.temp ; \
-			grep $${impl}_generated_pgo.so -B 2 benchmark_data.temp | \
+			grep $${impl}_generated_$(CC)_pgo.so -B 2 benchmark_data.temp | \
 			grep ' misses ' | \
 			egrep -o '[012345789]+\.[0123456789]+' > val2.temp ; \
-			strip --strip-unneeded $${impl}_generated_pgo.so ; \
-			size -A $${impl}_generated_pgo.so | egrep '^Total' | \
+			strip --strip-unneeded $${impl}_generated_$(CC)_pgo.so ; \
+			size -A $${impl}_generated_$(CC)_pgo.so | egrep '^Total' | \
 			awk '{print $$2}' > val4.temp ; \
 			echo $$i > val5.temp ; \
 			echo $(CC) > val6.temp ; \
