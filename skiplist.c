@@ -169,7 +169,7 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
   for (int level = 0; level < sl->max_level; level++)
   {
     for (unsigned i = 0; i < BUCKET_ITEMS; i++)
-      fprintf(stream, "CHECK_EQ_AND_LT(%d, %d)" S_EOL, level + 1, i);
+      fprintf(stream, "CHECK_EQ_AND_LT(%d, %u)" S_EOL, level + 1, i);
     fputs("return 0;" S_EOL, stream);
     fprintf(stream, "level%d:" S_EOL, level + 1);
     if (!level)
@@ -204,7 +204,7 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
       "return 0;" S_EOL
   , stream);
   for (unsigned i = 0; i < BUCKET_ITEMS; i++)
-    fprintf(stream, "CHECK_EQ(%d)" S_EOL, i);
+    fprintf(stream, "CHECK_EQ(%u)" S_EOL, i);
   fputs(
     "return 0;" S_EOL
   "}" S_EOL, stream);

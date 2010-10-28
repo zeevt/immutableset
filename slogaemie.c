@@ -26,12 +26,12 @@ static int slogaemie_internal(unsigned char* output, int size, int sum, int min_
   if (size == 1)
   {
     if (output[0] == sum) return 0;
-    output[0] = sum;
+    output[0] = (unsigned char)sum;
     return 1;
   }
   if (output[0] && slogaemie_internal(output + 1, size - 1, sum - output[0], output[0]))
     return 1;
-  if (output[0]++ < min_num) output[0] = min_num;
+  if (output[0]++ < min_num) output[0] = (unsigned char)min_num;
   for (int i = 1; i < size; i++) output[i] = 0;
   int remain = sum - output[0];
   if (remain < output[0]) return 0;

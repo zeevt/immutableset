@@ -26,8 +26,8 @@ THE SOFTWARE.
 #include "readonly_set_cfg.h"
 #include "hash_tools.h"
 
-extern int slogaemie(unsigned char* output, int size, int sum);
-extern int next_permutation(unsigned char *first, unsigned char *last);
+int slogaemie(unsigned char* output, int size, int sum);
+int next_permutation(unsigned char *first, unsigned char *last);
 
 static int calc_penalty(item_t mask, const int *bit_is_on)
 {
@@ -46,7 +46,7 @@ static void position_submasks(item_t *submasks, unsigned char *submask_start, co
     for (int bit = 1; bit < submask_length[i]; bit++)
       submasks[i] = (submasks[i] << 1) + 1;
     submasks[i] <<= next_start;
-    submask_start[i] = next_start;
+    submask_start[i] = (unsigned char)next_start;
     next_start += submask_length[i] + 1;
   }
 }
