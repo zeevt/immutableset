@@ -1,56 +1,54 @@
 ifeq ($(CC), icc)
-	CFLAGS = -std=c99 -Wall -g -gdwarf-2 -pipe -ipo -mssse3 -mtune=core2 -ffunction-sections -ansi-alias
-	CXXFLAGS = -std=c++0x -Wall -g -gdwarf-2 -pipe -ipo -mssse3 -mtune=core2 -ffunction-sections
+	GPP = icpc
+	CFLAGS = -std=c99 -Wall -g -gdwarf-2 -pipe $(OPT_FLAGS)
+	CXXFLAGS = -std=c++0x -Wall -g -gdwarf-2 -pipe -fno-rtti -fno-exceptions -fvisibility=hidden $(OPT_FLAGS)
 	LDFLAGS = -Wl,-O1 -Wl,--as-needed
-	PGO_GEN = -prof-gen
-	PGO_USE = -prof-use
-	OPT_FLAGS = -DNDEBUG -O3
+	PGO_GEN = -prof-gen -O3
+	PGO_USE = -prof-use -O3
+	OPT_FLAGS = -DNDEBUG -O2 -mssse3 -mtune=core2 -ansi-alias
 	DEBUG_FLAGS =
 else ifeq ($(CC), clang)
-	CFLAGS = -std=c99 -Wall -pedantic -g -pipe -march=core2 -mtune=core2 -fomit-frame-pointer -ffunction-sections -funroll-loops
+	GPP = clang++
+	CFLAGS = -std=c99 -Wall -pedantic -g -pipe $(OPT_FLAGS)
+	CXXFLAGS = -std=c++98 -Wall -pedantic -g -pipe -fvisibility=hidden $(OPT_FLAGS)
 	LDFLAGS = -Wl,-O1 -Wl,--as-needed -fwhole-program
 	PGO_GEN =
 	PGO_USE =
-	OPT_FLAGS = -DNDEBUG -O3
+	OPT_FLAGS = -DNDEBUG -O3 -march=core2 -mtune=core2 -fomit-frame-pointer
 	DEBUG_FLAGS =
 else
 	CC = gcc
-	CFLAGS = -std=c99 -Wall -Wextra -Wlogical-op -Wc++-compat -pedantic -Wno-unused-result -g -pipe -march=native -fexcess-precision=fast -ffunction-sections -flto
-	CXXFLAGS = -std=c++0x -Wall -Wextra -Wlogical-op -pedantic -Wno-unused-result -g -pipe -march=native -fexcess-precision=fast -flto
-	LDFLAGS = -Wl,-O1 -Wl,--as-needed -fwhole-program -flto -fwhopr
+	GPP = g++
+	CFLAGS = -std=c99 -Wall -Wextra -Wlogical-op -Wc++-compat -pedantic -Wno-unused-result -g -pipe $(OPT_FLAGS)
+	CXXFLAGS = -std=c++0x -Wall -Wextra -Wlogical-op -pedantic -Wno-unused-result -g -pipe -fno-rtti -fno-exceptions -fvisibility=hidden $(OPT_FLAGS)
+	LDFLAGS = -Wl,-O1 -Wl,--as-needed -fwhole-program
 	PGO_GEN = -fprofile-generate -O3
 	PGO_USE = -fprofile-use -O3
-	ifeq ("${DEBUG}", "yes")
-		OPT_FLAGS =
-		DEBUG_FLAGS = -O0 -ggdb
-	else
-		OPT_FLAGS = -DNDEBUG -O2
-		DEBUG_FLAGS =
-	endif
+	OPT_FLAGS = -DNDEBUG -O2 -march=native -fexcess-precision=fast
 endif
 
 all: tester_pgo
 
 IMPLS = linear linear_sse std_bsearch my_bsearch unroll_bsearch bbst ahnentafel skiplist hash ghash hopscotch
 
-tester.o: tester.c tree.h mapped_file.h unix_utils.h readonly_set.h readonly_set_cfg.h $(IMPLS:%=%.h)
-	$(CC) $(CFLAGS) $(OPT_FLAGS) -D_POSIX_C_SOURCE=199309L -c -o $@ $<
+tester.o: tester.cpp mapped_file.h unix_utils.h readonly_set.h readonly_set_cfg.h $(IMPLS:%=%.h)
+	$(GPP) $(CXXFLAGS) -D_POSIX_C_SOURCE=199309L -c -o $@ $<
 
 unix_mapped_file.o: unix_mapped_file.c print_utils.h readonly_set_cfg.h
-	$(CC) $(CFLAGS) $(OPT_FLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.c %.h print_utils.h readonly_set.h readonly_set_cfg.h
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 tester: tester.o unix_mapped_file.o print_utils.o abstract_rs.o choose_hash_func_mask.o slogaemie.o next_permutation.o hash_tools.o $(IMPLS:%=%.o)
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(LDFLAGS) $(DEBUG_FLAGS) -o $@ $^ -ldl -lrt
+	$(GPP) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ -ldl -lrt
 
 tester_pgo: unix_mapped_file.o print_utils.o abstract_rs.o choose_hash_func_mask.o slogaemie.o next_permutation.o hash_tools.o $(IMPLS:%=%.o)
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) -D_POSIX_C_SOURCE=199309L -c -o tester.o tester.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(LDFLAGS) $(PGO_GEN) -o tester tester.o $^ -ldl -lrt
+	$(GPP) $(CXXFLAGS) $(PGO_GEN) -D_POSIX_C_SOURCE=199309L -c -o tester.o tester.cpp
+	$(GPP) $(CXXFLAGS) $(LDFLAGS) $(PGO_GEN) -o tester tester.o $^ -ldl -lrt
 	$(MAKE) compare size=1000
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) -D_POSIX_C_SOURCE=199309L -c -o tester.o tester.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(LDFLAGS) $(PGO_USE) -o tester tester.o $^ -ldl -lrt
+	$(GPP) $(CXXFLAGS) $(PGO_USE) -D_POSIX_C_SOURCE=199309L -c -o tester.o tester.cpp
+	$(GPP) $(CXXFLAGS) $(LDFLAGS) $(PGO_USE) -o tester tester.o $^ -ldl -lrt
 
 
 ifeq (${data_file},)
@@ -64,14 +62,14 @@ endif
 	./tester generate-source ${data_file} $* $@
 
 %_generated_instrumented.so: %_generated.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) $(DEBUG_FLAGS) -fPIC -c -o $*_generated.o $<
+	$(CC) $(CFLAGS) $(PGO_GEN) -fPIC -c -o $*_generated.o $<
 	$(CC) $(LDFLAGS) $(PGO_GEN) -shared -o $@ $*_generated.o
 
 %_generated.gcda: %_generated_instrumented.so
 	./tester benchmark ${data_file} ${data_file_misses} ./$*_generated_instrumented.so | egrep -o 'GOOD|BAD'
 
 %_generated_$(CC)_pgo.so: %_generated.c %_generated.gcda
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -fPIC -c -o $*_generated.o $<
+	$(CC) $(CFLAGS) $(PGO_USE) -fPIC -c -o $*_generated.o $<
 	$(CC) $(LDFLAGS) $(PGO_USE) -shared -o $@ $*_generated.o
 ifeq ($(CC),icc)
 	rm *.dyn pgopti.dpi pgopti.dpi.lock
@@ -81,7 +79,7 @@ endif
 	$(CC) $(LDFLAGS) -shared -o $@ $<
 
 %_generated.o: %_generated.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 ${data_file}: tester regen
 	if [ "${data_file}" = "test_data.bin" ] ; then ./tester generate-data ${data_file} ${data_file_misses} ${size} ; fi
@@ -120,22 +118,22 @@ benchmark_data.txt: regen
 	rm -f *.temp
 
 choose_hash_func_mask: choose_hash_func_mask.c slogaemie.c next_permutation.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) -c -o slogaemie.o slogaemie.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) -c -o next_permutation.o next_permutation.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(DEBUG_FLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
+	$(CC) $(CFLAGS) -c -o slogaemie.o slogaemie.c
+	$(CC) $(CFLAGS) -c -o next_permutation.o next_permutation.c
+	$(CC) $(CFLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
 	./$@
 
 choose_hash_func_mask_pgo: choose_hash_func_mask.c slogaemie.c next_permutation.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) $(DEBUG_FLAGS) -c -o slogaemie.o slogaemie.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) $(DEBUG_FLAGS) -c -o next_permutation.o next_permutation.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) $(DEBUG_FLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_GEN) $(DEBUG_FLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
+	$(CC) $(CFLAGS) $(PGO_GEN) -c -o slogaemie.o slogaemie.c
+	$(CC) $(CFLAGS) $(PGO_GEN) -c -o next_permutation.o next_permutation.c
+	$(CC) $(CFLAGS) $(PGO_GEN) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
+	$(CC) $(CFLAGS) $(PGO_GEN) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
 	./$@
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -c -o slogaemie.o slogaemie.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -c -o next_permutation.o next_permutation.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
-	$(CC) $(CFLAGS) $(OPT_FLAGS) $(PGO_USE) $(DEBUG_FLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
+	$(CC) $(CFLAGS) $(PGO_USE) -c -o slogaemie.o slogaemie.c
+	$(CC) $(CFLAGS) $(PGO_USE) -c -o next_permutation.o next_permutation.c
+	$(CC) $(CFLAGS) $(PGO_USE) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
+	$(CC) $(CFLAGS) $(PGO_USE) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
 
 cpu_fast:
 	cpufreq-set -c 0 -g userspace

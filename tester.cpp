@@ -20,6 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#define __STDC_LIMIT_MACROS
+#define __STDC_CONSTANT_MACROS
+#define __STDC_FORMAT_MACROS
 #ifdef WIN32
 #include "winnt_utils.h"
 #include "inttypes.h"
@@ -37,7 +40,11 @@ THE SOFTWARE.
 #include "unix_utils.h"
 #endif
 
-#include "tree.h"
+#include <set>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "mapped_file.h"
 
 #include "skiplist.h"
@@ -51,6 +58,10 @@ THE SOFTWARE.
 #include "unroll_bsearch.h"
 #include "ghash.h"
 #include "hopscotch.h"
+
+#ifdef __cplusplus
+}
+#endif
 
 static const struct 
 {
@@ -115,51 +126,6 @@ static int test_rnd_miss(is_in_set_t is_in_set, const item_t* test_data, int siz
   return res;
 }
 
-static int cmp_item(const void *a, const void *b)
-{
-  item_t x = *(item_t*)a;
-  item_t y = *(item_t*)b;
-  if (x < y)
-    return -1;
-  else if (x > y)
-    return 1;
-  else
-    return 0;
-}
-
-typedef struct _Node Node;
-
-struct _Node
-{
-  item_t item;
-  TREE_ENTRY(_Node) tree;
-};
-
-static Node *Node_new(item_t item, Node **tree_data_hwm)
-{
-  Node *self = *tree_data_hwm;
-  (*tree_data_hwm)++;
-  self->item = item;
-  return self;
-}
-
-static int Node_compare(Node *lhs, Node *rhs)
-{
-  return cmp_item(&lhs->item, &rhs->item);
-}
-
-static void Node_copier(Node *self, void *target)
-{
-  item_t **pp = (item_t**)target;
-  item_t* p = *pp;
-  *p = self->item;
-  (*pp)++;
-}
-
-typedef TREE_HEAD(_Tree, _Node) Tree;
-
-TREE_DEFINE(_Node, tree)
-
 static item_t get_rand_in_range(item_t range_min, item_t range_max)
 {
   if ((item_t)(range_max - range_min + 1) == 0)
@@ -190,8 +156,6 @@ static item_t get_rand_in_range(item_t range_min, item_t range_max)
   }
 }
 
-DEFINE_TREE_WALKER(_Node, tree, node_copy, Node_copier(self, data))
-
 static int make_test_data(item_t* array, int size, item_t range_min, item_t range_max)
 {
   if ((range_max - range_min) < ((item_t)size - 1))
@@ -200,27 +164,21 @@ static int make_test_data(item_t* array, int size, item_t range_min, item_t rang
     return 1;
   }
 
-  Node *tree_data = (Node*)calloc(size, sizeof(Node));
-  Node *tree_data_hwm = tree_data;
-  Tree tree;
-  TREE_INIT(&tree, Node_compare);
-  
+  std::set<item_t> the_set;
+
   for (int i = 0; i < size; )
   {
-    Node v;
-    v.item = get_rand_in_range(range_min, range_max);
-    if (!TREE_FIND(&tree, _Node, tree, &v))
-    {
-      TREE_INSERT(&tree, _Node, tree, Node_new(v.item, &tree_data_hwm));
+    item_t candidate = get_rand_in_range(range_min, range_max);
+    std::pair<std::set<item_t>::iterator, bool> pair = the_set.insert(candidate);
+    if (pair.second)
       i++;
-    }
   }
 
-  item_t *p = array;
-  CALL_TREE_WALKER(&tree, _Node, tree, node_copy, &p);
-  
-  free(tree_data);
-  
+  for (std::set<item_t>::const_iterator iter = the_set.begin();
+       iter != the_set.end();
+       ++iter)
+    *(array++) = *iter;
+
   return 0;
 }
 
@@ -236,7 +194,7 @@ static int make_test_misses_data(item_t* array, int size)
   return o_index;
 }
 
-item_t* array_iter(void* opaque)
+static item_t* array_iter(void* opaque)
 {
   item_t** pp = (item_t**)opaque;
   return (*pp)++;
