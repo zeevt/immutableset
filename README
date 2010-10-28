@@ -20,18 +20,23 @@ One can try
 
     make compare size=1000 CC=clang
 
-to use clang, but performance suffers. Help on using PGO with clang is appreciated.
+to use clang. Help on using PGO with clang is appreciated.
 
     make compare size=1000 CC=icc
 
-Uses the Intel Compiler. Also slower than GCC 4.5.1.
+uses the Intel compiler.
 
 Some of the implementations are silly. If you only want to run the interesting ones, do
 
     make compare IMPLS_BENCH="skiplist hopscotch" size=1000
 
 The data structure used in "skiplist" is my own invention, in the sense that I came up with it by myself without seeing it a textbook, class, paper, other people's code, etc.
-I have not performed a search to see if I am the first to implement it or whether someone has patented it.
-It can be faster than binary search while taking the same amount of space. Performance depends on compiler and processor, obviously. Notably, clang and icc don't unroll the loops in skiplist_generated.c, resulting in performance worse than binary search.
+I have not performed any search to see if I am the first to implement it or whether someone has patented it.
+It can be significantly faster than binary search while taking the same amount of space for the data.
+Performance depends on compiler and processor, obviously. Notably, I am currently generating different variants of the code for gcc, clang and icc.
 
-Makefile has some processor-specific flags and readonly_set_cfg.h has a #define for the length of a cacheline. Adjust accordingly.
+The "hash" implementation is compact in size for data and code, and fast. Hopscotch is less compact but faster.
+
+Both hash and hopscotch use my own code to generate a fast and good hash function (given that all the keys are known in advance). That code currently uses exhaustive search instead of a fast dynamic programming solution.
+
+Makefile has some processor-specific flags and readonly_set_cfg.h has a #define for the length of a cacheline (for skiplist). Adjust accordingly.
