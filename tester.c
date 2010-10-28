@@ -85,31 +85,20 @@ static uint32_t xorshift(void)
 }
 
 
-static int test_compare(const item_t* actual, const item_t* expected)
-{
-  if (expected)
-  {
-    if (!actual)
-      printf("%" PR_item_t ": null\n", *expected);
-    if (actual && (*expected != *actual))
-      printf("%" PR_item_t ": %" PR_item_t "\n", *expected, *actual);
-    return actual && (*expected == *actual);
-  }
-  else
-  {
-    if (actual)
-      printf("found %" PR_item_t ", expected NULL!\n", *actual);
-    return !actual;
-  }
-}
-
 typedef const item_t* (*is_in_set_t)(const item_t item);
 
 static int test_rnd_hit(is_in_set_t is_in_set, const item_t* test_data, int size)
 {
   int res = 1;
   for (int i = 0; i < size; i++)
-    res &= test_compare(is_in_set(test_data[i]), &test_data[i]);
+  {
+    const item_t* actual = is_in_set(test_data[i]);
+    if (!actual)
+      printf("%" PR_item_t ": null\n", test_data[i]);
+    if (actual && (test_data[i] != *actual))
+      printf("%" PR_item_t ": %" PR_item_t "\n", test_data[i], *actual);
+    res &= actual && (test_data[i] == *actual);
+  }
   return res;
 }
 
@@ -117,7 +106,12 @@ static int test_rnd_miss(is_in_set_t is_in_set, const item_t* test_data, int siz
 {
   int res = 1;
   for (int i = 0; i < size; i++)
-    res &= test_compare(is_in_set(test_data[i]), NULL);
+  {
+    const item_t* actual = is_in_set(test_data[i]);
+    if (actual)
+      printf("found %" PR_item_t ", expected NULL!\n", *actual);
+    res &= !actual;
+  }
   return res;
 }
 
