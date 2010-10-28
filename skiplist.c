@@ -138,34 +138,8 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
   FUNCTION_DEFINITION S_EOL
   "{" S_EOL
     "assert(0 == ((intptr_t)&array[0] % CACHE_LINE_BYTES));\n"
-    "#if defined(__GNUC_MINOR__) && (__GNUC_MINOR__ > 3)\n"
-    "unsigned level = 0, offset = 0, breadcrumbs = 0;" S_EOL
-    "while (level < ARRLEN(offsets))" S_EOL
-    "{" S_EOL
-      "for (unsigned i = 0; i < BUCKET_ITEMS; i++)" S_EOL
-      "{" S_EOL
-        "if (item == array[ offset + i ])" S_EOL
-          "return &array[ offset + i ];" S_EOL
-        "if (item < array[ offset + i ])" S_EOL
-        "{" S_EOL
-          "breadcrumbs = (breadcrumbs | i) * BUCKET_ITEMS;" S_EOL
-          "offset = offsets[level++] + breadcrumbs;" S_EOL
-          "goto again;" S_EOL
-        "}" S_EOL
-      "}" S_EOL
-      "return 0;" S_EOL
-      "again:;" S_EOL
-    "}" S_EOL
-    "if (offset >= ARRLEN(array))" S_EOL
-      "return 0;" S_EOL
-    "for (unsigned i = 0; i < BUCKET_ITEMS; i++)" S_EOL
-    "{" S_EOL
-      "assert((offset + i) < ARRLEN(array));" S_EOL
-      "if (item == array[ offset + i ])" S_EOL
-        "return &array[ offset + i ];" S_EOL
-    "}\n"
-    "#else\n"
-    "unsigned offset = 0, breadcrumbs = 0;" S_EOL
+    "#if defined(__clang__)\n"
+    "unsigned offset = 0, breadcrumbs = 0;\n"
     "#define CHECK_EQ(i) \\\n"
       "if (item == array[ offset + i ]) \\\n"
           "return &array[ offset + i ];\n"
@@ -177,23 +151,61 @@ void skiplist_generate_c(const struct skiplist_t* sl, FILE* stream)
         "offset = offsets[next_level - 1] + breadcrumbs; \\\n"
         "goto level##next_level; \\\n"
       "}\n"
+    "#else\n"
+    "#define CHECK_EQ(i) \\\n"
+      "if (item == *p) return p; ++p;\n"
+    "#define CHECK_EQ_AND_LT(next_level, i) \\\n"
+      "if (item == *p) return p; \\\n"
+      "if (item < *p) goto level##next_level; \\\n"
+      "++p;\n"
+    "unsigned breadcrumbs = 0;" S_EOL
+    "#if defined(__INTEL_COMPILER)\n"
+    "const item_t *p = array;\n"
+    "#elif defined(__GNUC__)\n"
+    "const item_t *p = array, *oldp = array;\n"
+    "#endif\n"
+    "#endif\n"
   , stream);
   for (int level = 0; level < sl->max_level; level++)
   {
-    if (level)
-      fprintf(stream, "level%d:" S_EOL, level);
     for (unsigned i = 0; i < BUCKET_ITEMS; i++)
       fprintf(stream, "CHECK_EQ_AND_LT(%d, %d)" S_EOL, level + 1, i);
     fputs("return 0;" S_EOL, stream);
+    fprintf(stream, "level%d:" S_EOL, level + 1);
+    if (!level)
+      fprintf(stream,
+    "#if defined(__clang__)\n"
+    "#elif defined(__INTEL_COMPILER)\n"
+    "breadcrumbs = (((uintptr_t)p / sizeof(item_t)) %% BUCKET_ITEMS) * BUCKET_ITEMS;" S_EOL
+    "p = &array[ offsets[%d] + breadcrumbs ];" S_EOL
+    "#elif defined(__GNUC__)\n"
+    "breadcrumbs = (p - oldp) * BUCKET_ITEMS;" S_EOL
+    "oldp = p = &array[ offsets[%d] + breadcrumbs ];" S_EOL
+    "#endif\n"
+      , level, level);
+    else
+      fprintf(stream,
+    "#if defined(__clang__)\n"
+    "#elif defined(__INTEL_COMPILER)\n"
+    "breadcrumbs = (breadcrumbs | ((uintptr_t)p / sizeof(item_t)) %% BUCKET_ITEMS) * BUCKET_ITEMS;" S_EOL
+    "p = &array[ offsets[%d] + breadcrumbs ];" S_EOL
+    "#elif defined(__GNUC__)\n"
+    "breadcrumbs = (breadcrumbs | (p - oldp)) * BUCKET_ITEMS;" S_EOL
+    "oldp = p = &array[ offsets[%d] + breadcrumbs ];" S_EOL
+    "#endif\n"
+      , level, level);
   }
-  fprintf(stream,
-    "level%d:" S_EOL
-    "if (offset >= ARRLEN(array))" S_EOL
-      "return 0;" S_EOL, sl->max_level);
+  fputs(
+    "#if defined(__clang__)\n"
+    "if (offset >= ARRLEN(array))\n"
+    "#else\n"
+    "if (p > &array[ARRLEN(array)])\n"
+    "#endif\n"
+      "return 0;" S_EOL
+  , stream);
   for (unsigned i = 0; i < BUCKET_ITEMS; i++)
     fprintf(stream, "CHECK_EQ(%d)" S_EOL, i);
   fputs(
-    "\n#endif /* __GNUC__ */\n"
     "return 0;" S_EOL
   "}" S_EOL, stream);
 }
