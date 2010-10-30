@@ -116,13 +116,15 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
     // for each, loop over permutations with repetition of ways to order those.
     // for each array of submask lengths, shift submasks one by one towards the other end.
     int time = 3 * num_submasks - 2;
-    if ((time - best_time) * penalty_per_instruction > best_penalty) goto end;
+    int threshold = best_penalty - (time - best_time) * penalty_per_instruction;
+    if (threshold <= 0) goto end;
     for (int i = 0; i < num_submasks; i++) submask_length[i] = 0;
     while (slogaemie(submask_length, num_submasks, needed_bits))
     {
       do
       {
         time = 3 * num_submasks - 2;
+        threshold = best_penalty - (time - best_time) * penalty_per_instruction;
         position_submasks(submask_start, submask_length, 0, num_submasks, 0);
         int penalty_partial_sum =
           sum_penalty(num_submasks - 1, submask_start, submask_length, stats->bit_is_on, memo);
@@ -130,11 +132,12 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
         {
           int penalty = penalty_partial_sum +
             calc_submask_penalty(submask_start[num_submasks - 1], submask_length[num_submasks - 1], stats->bit_is_on, memo);
-          if ((best_penalty - penalty) > (time - best_time) * penalty_per_instruction)
+          if (penalty < threshold)
           {
             best_mask = build_mask(num_submasks, submask_start, submask_length);
             best_penalty = penalty;
             best_time = time;
+            threshold = best_penalty;
           }
           /* shift to next position */
           int submask_to_move = num_submasks - 1;
@@ -142,7 +145,11 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
           {
             if (submask_start[submask_to_move] + submask_length[submask_to_move] < next_end)
             {
-              if ((submask_to_move == 0) && (submask_start[submask_to_move] == 0)) time++;
+              if ((submask_to_move == 0) && (submask_start[submask_to_move] == 0))
+              {
+                time++;
+                threshold -= penalty_per_instruction;
+              }
               submask_start[submask_to_move]++;
               goto has_shifted_a_submask;
             }
