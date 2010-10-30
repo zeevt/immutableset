@@ -20,11 +20,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#include <stdlib.h>
+#ifdef WIN32
+#include "stdint.h"
+#else
 #include <stdint.h>
+#endif
+#include <stdlib.h>
 #include <limits.h>
 #include "readonly_set_cfg.h"
+#ifdef TEST
 #include "hash_tools.h"
+#endif
 
 int slogaemie(unsigned char* output, int size, int sum);
 int next_permutation(unsigned char *first, unsigned char *last);
@@ -74,6 +80,19 @@ static int calc_submask_penalty(
   return penalty;
 }
 
+static int sum_penalty(
+  int num_submasks,
+  const unsigned char *restrict submask_start,
+  const unsigned char *restrict submask_length,
+  const int *restrict bit_is_on,
+  unsigned short *restrict memo)
+{
+  int result = 0;
+  for (int i = 0; i < num_submasks; i++)
+    result += calc_submask_penalty(submask_start[i], submask_length[i], bit_is_on, memo);
+  return result;
+}
+
 item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int penalty_per_instruction)
 {
   /*
@@ -105,13 +124,14 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
     {
       do
       {
-        position_submasks(submask_start, submask_length, 0, num_submasks, 0);
         time = 3 * num_submasks - 2;
+        position_submasks(submask_start, submask_length, 0, num_submasks, 0);
+        int penalty_partial_sum =
+          sum_penalty(num_submasks - 1, submask_start, submask_length, stats->bit_is_on, memo);
         for (;;)
         {
-          int penalty = 0;
-          for (int i = 0; i < num_submasks; i++)
-            penalty += calc_submask_penalty(submask_start[i], submask_length[i], stats->bit_is_on, memo);
+          int penalty = penalty_partial_sum +
+            calc_submask_penalty(submask_start[num_submasks - 1], submask_length[num_submasks - 1], stats->bit_is_on, memo);
           if ((best_penalty - penalty) > (time - best_time) * penalty_per_instruction)
           {
             best_mask = build_mask(num_submasks, submask_start, submask_length);
@@ -132,9 +152,14 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
           }
           break;
           has_shifted_a_submask:
-          position_submasks(submask_start, submask_length,
-                            submask_to_move + 1, num_submasks,
-                            submask_start[submask_to_move] + submask_length[submask_to_move] + 1);
+          if (submask_to_move != num_submasks - 1)
+          {
+            position_submasks(submask_start, submask_length,
+                              submask_to_move + 1, num_submasks,
+                              submask_start[submask_to_move] + submask_length[submask_to_move] + 1);
+            penalty_partial_sum =
+              sum_penalty(num_submasks - 1, submask_start, submask_length, stats->bit_is_on, memo);
+          }
         }
       }
       while (next_permutation(submask_length, submask_length + num_submasks));
