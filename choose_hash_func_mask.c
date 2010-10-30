@@ -30,27 +30,27 @@ THE SOFTWARE.
 #include "readonly_set_cfg.h"
 #include "hash_tools.h"
 
-int slogaemie(unsigned char* output, int size, int sum);
-int next_permutation(unsigned char *first, unsigned char *last);
+int slogaemie(uint8_t* output, int size, int sum);
+int next_permutation(uint8_t *first, uint8_t *last);
 
 static void position_submasks(
-  unsigned char *restrict submask_start,
-  const unsigned char *restrict submask_length,
+  uint8_t *restrict submask_start,
+  const uint8_t *restrict submask_length,
   int begin,
   int num_submasks,
   int next_start)
 {
   for (int i = begin; i < num_submasks; i++)
   {
-    submask_start[i] = (unsigned char)next_start;
+    submask_start[i] = (uint8_t)next_start;
     next_start += submask_length[i] + 1;
   }
 }
 
 static item_t build_mask(
   int num_submasks,
-  const unsigned char *restrict submask_start,
-  const unsigned char *restrict submask_length)
+  const uint8_t *restrict submask_start,
+  const uint8_t *restrict submask_length)
 {
   item_t result = ITEM_T_C(0);
   for (int i = 0; i < num_submasks; i++)
@@ -64,26 +64,26 @@ static item_t build_mask(
 }
 
 static int calc_submask_penalty(
-  unsigned char start,
-  unsigned char length,
+  uint8_t start,
+  uint8_t length,
   const int *restrict bit_is_on,
-  unsigned short * memo)
+  uint16_t * memo)
 {
-  unsigned short *cache_cell = &memo[(length - 1) * item_bits + start];
+  uint16_t *cache_cell = &memo[(length - 1) * item_bits + start];
   if (*cache_cell) return *cache_cell;
   int penalty = 0;
   for (int i = 0; i < length; i++)
     penalty += bit_is_on[start + i];
-  *cache_cell = (unsigned short)penalty;
+  *cache_cell = (uint16_t)penalty;
   return penalty;
 }
 
 static int sum_penalty(
   int num_submasks,
-  const unsigned char *restrict submask_start,
-  const unsigned char *restrict submask_length,
+  const uint8_t *restrict submask_start,
+  const uint8_t *restrict submask_length,
   const int *restrict bit_is_on,
-  unsigned short *restrict memo)
+  uint16_t *restrict memo)
 {
   int result = 0;
   for (int i = 0; i < num_submasks; i++)
@@ -107,9 +107,9 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
   int best_penalty = INT_MAX;
   int best_time = 0;
   int max_possible_submasks = (needed_bits <= (item_bits / 2)) ? needed_bits : (item_bits - needed_bits + 1);
-  unsigned char *submask_length = (unsigned char *)malloc(max_possible_submasks);
-  unsigned char *submask_start = (unsigned char *)malloc(max_possible_submasks);
-  unsigned short *memo = (unsigned short *)calloc(item_bits * needed_bits, sizeof(short));
+  uint8_t *submask_length = (uint8_t *)malloc(max_possible_submasks);
+  uint8_t *submask_start = (uint8_t *)malloc(max_possible_submasks);
+  uint16_t *memo = (uint16_t *)calloc(item_bits * needed_bits, sizeof(short));
   for (int num_submasks = 1; num_submasks <= max_possible_submasks; num_submasks++)
   {
     // loop over possible ways to get a sum of needed_bits from num_submasks natural numbers
@@ -148,6 +148,7 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
             }
             next_end -= submask_length[submask_to_move] + 1;
           }
+          /* couldn't shift because all submasks have reached the end of the mask */
           break;
           has_shifted_a_submask:
           if (submask_to_move != num_submasks - 1)
