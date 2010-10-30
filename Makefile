@@ -24,7 +24,7 @@ else
 	LDFLAGS = -Wl,-O1 -Wl,--as-needed -fwhole-program
 	PGO_GEN = -fprofile-generate -O3
 	PGO_USE = -fprofile-use -O3
-	OPT_FLAGS = -DNDEBUG -O2 -march=native -fexcess-precision=fast
+	OPT_FLAGS = -DNDEBUG -O2 -march=core2 -mtune=core2 -fexcess-precision=fast -flto
 endif
 
 all: tester_pgo
