@@ -28,9 +28,7 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <limits.h>
 #include "readonly_set_cfg.h"
-#ifdef TEST
 #include "hash_tools.h"
-#endif
 
 int slogaemie(unsigned char* output, int size, int sum);
 int next_permutation(unsigned char *first, unsigned char *last);
