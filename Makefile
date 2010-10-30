@@ -117,11 +117,9 @@ benchmark_data.txt: regen
 	done ; \
 	rm -f *.temp
 
-choose_hash_func_mask: choose_hash_func_mask.c slogaemie.c next_permutation.c
-	$(CC) $(CFLAGS) -c -o slogaemie.o slogaemie.c
-	$(CC) $(CFLAGS) -c -o next_permutation.o next_permutation.c
+choose_hash_func_mask: choose_hash_func_mask.c slogaemie.o next_permutation.o hash_tools.o print_utils.o
 	$(CC) $(CFLAGS) -DTEST -c -o choose_hash_func_mask.o choose_hash_func_mask.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ choose_hash_func_mask.o slogaemie.o next_permutation.o hash_tools.o print_utils.o
 	./$@
 
 choose_hash_func_mask_pgo: choose_hash_func_mask.c slogaemie.c next_permutation.c

@@ -29,26 +29,49 @@ THE SOFTWARE.
 int slogaemie(unsigned char* output, int size, int sum);
 int next_permutation(unsigned char *first, unsigned char *last);
 
-static int calc_penalty(item_t mask, const int *bit_is_on)
-{
-  int penalty = 0;
-  for (int i = 0; i < item_bits; i++)
-    if (mask & (ITEM_T_C(1) << i))
-      penalty += bit_is_on[i];
-  return penalty;
-}
-
-static void position_submasks(item_t *submasks, unsigned char *submask_start, const unsigned char *submask_length, int begin, int num_submasks, int next_start)
+static void position_submasks(
+  unsigned char *restrict submask_start,
+  const unsigned char *restrict submask_length,
+  int begin,
+  int num_submasks,
+  int next_start)
 {
   for (int i = begin; i < num_submasks; i++)
   {
-    submasks[i] = 1;
-    for (int bit = 1; bit < submask_length[i]; bit++)
-      submasks[i] = (submasks[i] << 1) + 1;
-    submasks[i] <<= next_start;
     submask_start[i] = (unsigned char)next_start;
     next_start += submask_length[i] + 1;
   }
+}
+
+static item_t build_mask(
+  int num_submasks,
+  const unsigned char *restrict submask_start,
+  const unsigned char *restrict submask_length)
+{
+  item_t result = ITEM_T_C(0);
+  for (int i = 0; i < num_submasks; i++)
+  {
+    item_t submask = ITEM_T_C(1);
+    for (int bit = 1; bit < submask_length[i]; bit++)
+      submask = (submask << 1) + 1;
+    result |= submask << submask_start[i];
+  }
+  return result;
+}
+
+static int calc_submask_penalty(
+  unsigned char start,
+  unsigned char length,
+  const int *restrict bit_is_on,
+  unsigned short * memo)
+{
+  unsigned short *cache_cell = &memo[(length - 1) * item_bits + start];
+  if (*cache_cell) return *cache_cell;
+  int penalty = 0;
+  for (int i = 0; i < length; i++)
+    penalty += bit_is_on[start + i];
+  *cache_cell = (unsigned short)penalty;
+  return penalty;
 }
 
 item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int penalty_per_instruction)
@@ -59,8 +82,7 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
   execution_time = sum(1 for submask starting at LSB, 3 for each submask starting not as LSB for each submask)
   cost = formula that relates penalty to execution_time with some coefficient
   choose the candidate mask with the lowest cost.
-  for debug version, keep all candidates in list, sort it.
-  for real, just keep the best so far (min_cost) and compare each new one to it.
+  keep the best so far (min_cost) and compare each new one to it.
   for version two, penalize also using correlation data.
   */
   
@@ -68,10 +90,9 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
   int best_penalty = INT_MAX;
   int best_time = 0;
   int max_possible_submasks = (needed_bits <= (item_bits / 2)) ? needed_bits : (item_bits - needed_bits + 1);
-  void* mem = malloc((sizeof(item_t) + 2) * max_possible_submasks);
-  item_t *submask = (item_t *)mem;
-  unsigned char *submask_length = (unsigned char *)mem + (max_possible_submasks * sizeof(item_t));
-  unsigned char *submask_start = submask_length + max_possible_submasks;
+  unsigned char *submask_length = (unsigned char *)malloc(max_possible_submasks);
+  unsigned char *submask_start = (unsigned char *)malloc(max_possible_submasks);
+  unsigned short *memo = (unsigned short *)calloc(item_bits * needed_bits, sizeof(short));
   for (int num_submasks = 1; num_submasks <= max_possible_submasks; num_submasks++)
   {
     // loop over possible ways to get a sum of needed_bits from num_submasks natural numbers
@@ -84,17 +105,16 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
     {
       do
       {
-        position_submasks(submask, submask_start, submask_length, 0, num_submasks, 0);
+        position_submasks(submask_start, submask_length, 0, num_submasks, 0);
         time = 3 * num_submasks - 2;
         for (;;)
         {
-          item_t mask = 0;
-          for (int i = 0; i < num_submasks; i++) mask |= submask[i];
-          //print_mask(mask);
-          int penalty = calc_penalty(mask, stats->bit_is_on);
+          int penalty = 0;
+          for (int i = 0; i < num_submasks; i++)
+            penalty += calc_submask_penalty(submask_start[i], submask_length[i], stats->bit_is_on, memo);
           if ((best_penalty - penalty) > (time - best_time) * penalty_per_instruction)
           {
-            best_mask = mask;
+            best_mask = build_mask(num_submasks, submask_start, submask_length);
             best_penalty = penalty;
             best_time = time;
           }
@@ -106,14 +126,13 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
             {
               if ((submask_to_move == 0) && (submask_start[submask_to_move] == 0)) time++;
               submask_start[submask_to_move]++;
-              submask[submask_to_move] <<= 1;
               goto has_shifted_a_submask;
             }
             next_end -= submask_length[submask_to_move] + 1;
           }
           break;
           has_shifted_a_submask:
-          position_submasks(submask, submask_start, submask_length,
+          position_submasks(submask_start, submask_length,
                             submask_to_move + 1, num_submasks,
                             submask_start[submask_to_move] + submask_length[submask_to_move] + 1);
         }
@@ -123,7 +142,9 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
     if (best_penalty < penalty_per_instruction) goto end;
   }
 end:
-  free(mem);
+  free(memo);
+  free(submask_length);
+  free(submask_start);
   return best_mask;
 }
 

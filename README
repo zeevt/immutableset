@@ -37,6 +37,6 @@ Performance depends on compiler and processor, obviously. Notably, I am currentl
 
 The "hash" implementation is compact in size for data and code, and fast. Hopscotch is less compact but faster.
 
-Both hash and hopscotch use my own code to generate a fast and good hash function (given that all the keys are known in advance). That code currently uses exhaustive search instead of a fast dynamic programming solution.
+Both hash and hopscotch use my own code to generate a fast and good hash function (given that all the keys are known in advance). That code can be slow in pathological cases.
 
 Makefile has some processor-specific flags and readonly_set_cfg.h has a #define for the length of a cacheline (for skiplist). Adjust accordingly.
