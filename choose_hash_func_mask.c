@@ -78,19 +78,6 @@ static int calc_submask_penalty(
   return penalty;
 }
 
-static int sum_penalty(
-  int num_submasks,
-  const uint8_t *restrict submask_start,
-  const uint8_t *restrict submask_length,
-  const int *restrict bit_is_on,
-  uint16_t *restrict memo)
-{
-  int result = 0;
-  for (int i = 0; i < num_submasks; i++)
-    result += calc_submask_penalty(submask_start[i], submask_length[i], bit_is_on, memo);
-  return result;
-}
-
 item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int penalty_per_instruction)
 {
   /*
@@ -107,9 +94,11 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
   int best_penalty = INT_MAX;
   int best_time = 0;
   int max_possible_submasks = (needed_bits <= (item_bits / 2)) ? needed_bits : (item_bits - needed_bits + 1);
-  uint8_t *submask_length = (uint8_t *)malloc(max_possible_submasks);
-  uint8_t *submask_start = (uint8_t *)malloc(max_possible_submasks);
-  uint16_t *memo = (uint16_t *)calloc(item_bits * needed_bits, sizeof(short));
+  uint16_t *restrict memo = (uint16_t *)calloc(item_bits * needed_bits, sizeof(short));
+  int *restrict partial_sums = (int *)malloc(max_possible_submasks * sizeof(int));
+  uint8_t *restrict submask_length = (uint8_t *)malloc(max_possible_submasks);
+  uint8_t *restrict submask_start = (uint8_t *)malloc(max_possible_submasks);
+  // TODO: add max_submask_idx alongside num_submasks, convert everything, remove num_submasks.
   for (int num_submasks = 1; num_submasks <= max_possible_submasks; num_submasks++)
   {
     // loop over possible ways to get a sum of needed_bits from num_submasks natural numbers
@@ -126,12 +115,14 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
         time = 3 * num_submasks - 2;
         threshold = best_penalty - (time - best_time) * penalty_per_instruction;
         position_submasks(submask_start, submask_length, 0, num_submasks, 0);
-        int penalty_partial_sum =
-          sum_penalty(num_submasks - 1, submask_start, submask_length, stats->bit_is_on, memo);
+        partial_sums[0] = 0;
+        for (int i = 0; i < num_submasks - 1; i++)
+          partial_sums[i + 1] = partial_sums[i] +
+            calc_submask_penalty(submask_start[i], submask_length[i], stats->bit_is_on, memo);
         for (;;)
         {
-          int penalty = penalty_partial_sum +
-            calc_submask_penalty(submask_start[num_submasks - 1], submask_length[num_submasks - 1], stats->bit_is_on, memo);
+          int penalty = partial_sums[num_submasks-1] +
+            calc_submask_penalty(submask_start[num_submasks-1], submask_length[num_submasks-1], stats->bit_is_on, memo);
           if (penalty < threshold)
           {
             best_mask = build_mask(num_submasks, submask_start, submask_length);
@@ -158,13 +149,14 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
           /* couldn't shift because all submasks have reached the end of the mask */
           break;
           has_shifted_a_submask:
-          if (submask_to_move != num_submasks - 1)
+          if (submask_to_move != num_submasks-1)
           {
             position_submasks(submask_start, submask_length,
                               submask_to_move + 1, num_submasks,
                               submask_start[submask_to_move] + submask_length[submask_to_move] + 1);
-            penalty_partial_sum =
-              sum_penalty(num_submasks - 1, submask_start, submask_length, stats->bit_is_on, memo);
+            for (int i = submask_to_move; i < num_submasks - 1; i++)
+              partial_sums[i + 1] = partial_sums[i] +
+                calc_submask_penalty(submask_start[i], submask_length[i], stats->bit_is_on, memo);
           }
         }
       }
@@ -173,9 +165,10 @@ item_t choose_hash_func_mask(const struct stats_t *stats, int needed_bits, int p
     if (best_penalty < penalty_per_instruction) goto end;
   }
 end:
-  free(memo);
   free(submask_length);
   free(submask_start);
+  free(partial_sums);
+  free(memo);
   return best_mask;
 }
 
